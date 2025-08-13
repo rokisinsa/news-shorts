@@ -1,0 +1,30 @@
+name: news-shorts-hourly
+on:
+  schedule:
+    - cron: "10 * * * *"   # 毎時10分に自動実行
+  workflow_dispatch: {}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Write OAuth files from secrets
+        shell: bash
+        run: |
+          cat > client_secret.json <<'EOF'
+          ${{ secrets.YT_CLIENT_SECRET_JSON }}
+          EOF
+          cat > yt_token.json <<'EOF'
+          ${{ secrets.YT_TOKEN_JSON }}
+          EOF
+      - name: Run
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python main.py
