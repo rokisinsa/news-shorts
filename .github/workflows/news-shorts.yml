@@ -2,21 +2,19 @@ name: news-shorts-hourly
 
 on:
   schedule:
-    - cron: "10 * * * *"   # 毎時10分に自動実行
+    - cron: '10 * * * *'   # 毎時10分に実行
   workflow_dispatch: {}
 
 jobs:
   run:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      # ====== ここでランナーのシステム依存を完全投入 ======
       - name: Install system deps
         run: |
           sudo rm -f /var/lib/dpkg/lock-frontend /var/cache/apt/archives/lock || true
@@ -25,33 +23,26 @@ jobs:
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/*
 
-      # ====== pip を先に最新化してから requirements を入れる ======
       - name: Install deps
-  run: |
-    python -m pip install --upgrade pip
-    python -m pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
-- name: Ensure moviepy exists
-  run: |
-    python -m pip install --upgrade moviepy imageio-ffmpeg
+      - name: Ensure moviepy exists
+        run: |
+          python -m pip install --upgrade moviepy imageio-ffmpeg
 
-
-      # ====== Secrets から認証ファイルを書き出し ======
       - name: Write OAuth files from secrets
         shell: bash
         run: |
           cat > client_secret.json <<'EOF'
           ${{ secrets.YT_CLIENT_SECRET_JSON }}
           EOF
-
           cat > yt_token.json <<'EOF'
           ${{ secrets.YT_TOKEN_JSON }}
           EOF
 
-      # ====== 実行 ======
       - name: Run
         env:
-          PYTHONIOENCODING: utf-8
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # 使っていないなら未設定でもOK
-        run: |
-          python main.py
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python main.py
