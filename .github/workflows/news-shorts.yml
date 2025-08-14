@@ -1,4 +1,5 @@
 name: news-shorts-hourly
+
 on:
   schedule:
     - cron: "10 * * * *"   # 毎時10分に自動実行
@@ -7,34 +8,45 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+
     steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-python@v5
-    with:
-      python-version: "3.11"
+      - uses: actions/checkout@v4
 
-  - name: Install system deps
-    run: |
-      sudo rm -f /var/lib/dpkg/lock-frontend /var/cache/apt/archives/lock || true
-      sudo apt-get update -y
-      sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
-      sudo apt-get clean
-      sudo rm -rf /var/lib/apt/lists/*
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-  - name: Install deps
-    run: pip install -r requirements.txt
+      # ====== ここでランナーのシステム依存を完全投入 ======
+      - name: Install system deps
+        run: |
+          sudo rm -f /var/lib/dpkg/lock-frontend /var/cache/apt/archives/lock || true
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
 
-  - name: Write OAuth files from secrets
-    shell: bash
-    run: |
-      cat > client_secret.json <<'EOF'
-      ${{ secrets.YT_CLIENT_SECRET_JSON }}
-      EOF
-      cat > yt_token.json <<'EOF'
-      ${{ secrets.YT_TOKEN_JSON }}
-      EOF
+      # ====== pip を先に最新化してから requirements を入れる ======
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install --no-cache-dir -r requirements.txt
 
-  - name: Run
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-    run: python main.py
+      # ====== Secrets から認証ファイルを書き出し ======
+      - name: Write OAuth files from secrets
+        shell: bash
+        run: |
+          cat > client_secret.json <<'EOF'
+          ${{ secrets.YT_CLIENT_SECRET_JSON }}
+          EOF
+
+          cat > yt_token.json <<'EOF'
+          ${{ secrets.YT_TOKEN_JSON }}
+          EOF
+
+      # ====== 実行 ======
+      - name: Run
+        env:
+          PYTHONIOENCODING: utf-8
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # 使っていないなら未設定でもOK
+        run: |
+          python main.py
