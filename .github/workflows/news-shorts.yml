@@ -8,31 +8,33 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+  - uses: actions/checkout@v4
+  - uses: actions/setup-python@v5
+    with:
+      python-version: "3.11"
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+  - name: Install system deps
+    run: |
+      sudo rm -f /var/lib/dpkg/lock-frontend /var/cache/apt/archives/lock || true
+      sudo apt-get update -y
+      sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
+      sudo apt-get clean
+      sudo rm -rf /var/lib/apt/lists/*
 
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-noto-cjk
+  - name: Install deps
+    run: pip install -r requirements.txt
 
-      - name: Install deps
-        run: pip install -r requirements.txt
+  - name: Write OAuth files from secrets
+    shell: bash
+    run: |
+      cat > client_secret.json <<'EOF'
+      ${{ secrets.YT_CLIENT_SECRET_JSON }}
+      EOF
+      cat > yt_token.json <<'EOF'
+      ${{ secrets.YT_TOKEN_JSON }}
+      EOF
 
-      - name: Write OAuth files from secrets
-        shell: bash
-        run: |
-          cat > client_secret.json <<'EOF'
-          ${{ secrets.YT_CLIENT_SECRET_JSON }}
-          EOF
-          cat > yt_token.json <<'EOF'
-          ${{ secrets.YT_TOKEN_JSON }}
-          EOF
-
-      - name: Run
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python main.py
+  - name: Run
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    run: python main.py
