@@ -2,19 +2,23 @@ name: news-shorts-hourly
 
 on:
   schedule:
-    - cron: '10 * * * *'   # 毎時10分に実行
-  workflow_dispatch: {}
+    - cron: "10 * * * *"   # 毎時10分に実行
+  workflow_dispatch:       # 手動実行ボタン
 
 jobs:
   run:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+            python-version: "3.11"
 
+      # ---- Linux 側の必須コマンド類（ffmpeg 等）を入れる ----
       - name: Install system deps
         run: |
           sudo rm -f /var/lib/dpkg/lock-frontend /var/cache/apt/archives/lock || true
@@ -23,15 +27,24 @@ jobs:
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/*
 
-      - name: Install deps
+      # ---- Python 依存のインストール（moviepy を確実に入れる）----
+      - name: Install Python deps
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install --upgrade pip setuptools wheel
+          # 先に requirements.txt（あれば）を入れる
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+          # 最後に moviepy 一式を強制上書き（キャッシュ無効 & バージョン固定）
+          python -m pip install --upgrade --no-cache-dir \
+            moviepy==1.0.3 imageio==2.31.5 imageio-ffmpeg==0.4.9 decorator==4.4.2
 
-      - name: Ensure moviepy exists
+      # ---- 本当に import できるかチェック（ログにバージョンを出す）----
+      - name: Verify moviepy import
         run: |
-          python -m pip install --upgrade moviepy imageio-ffmpeg
+          python -V
+          python -c "import moviepy, moviepy.editor as e; print('moviepy OK:', moviepy.__version__)"
+          python -m pip show moviepy imageio imageio-ffmpeg || true
 
+      # ---- シークレットをファイルとして書き出し ----
       - name: Write OAuth files from secrets
         shell: bash
         run: |
@@ -42,7 +55,9 @@ jobs:
           ${{ secrets.YT_TOKEN_JSON }}
           EOF
 
+      # ---- 実行 ----
       - name: Run
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python main.py
+        run: |
+          python main.py
